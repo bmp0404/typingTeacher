@@ -1,0 +1,308 @@
+/* ============================================
+   TYPING TRAINER - MONKEYTYPE-INSPIRED STYLES
+   ============================================ */
+
+/* CSS Variables */
+:root {
+  /* Background & Surface */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #232323;
+  
+  /* Text Colors */
+  --text-primary: #d1d0c5;
+  --text-muted: #646669;
+  --text-correct: #d1d0c5;
+  --text-incorrect: #ca4754;
+  --text-current: #e2b714;
+  
+  /* Accent */
+  --accent: #e2b714;
+  --accent-muted: rgba(226, 183, 20, 0.3);
+  
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  
+  /* Sizing */
+  --prompt-size: 1.75rem;
+  --stats-size: 1rem;
+  --focus-size: 0.875rem;
+  
+  /* Spacing */
+  --container-padding: 2rem;
+  
+  /* Transitions */
+  --transition-fast: 100ms ease;
+  --transition-normal: 200ms ease;
+}
+
+/* Reset & Base */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-mono);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App Container */
+.app {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--container-padding);
+  outline: none;
+  cursor: default;
+}
+
+.app:focus {
+  outline: none;
+}
+
+/* Loading State */
+.app.loading {
+  background: var(--bg-primary);
+}
+
+.loading-text {
+  color: var(--text-muted);
+  font-size: var(--stats-size);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Typing Container */
+.typing-container {
+  max-width: 900px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* Prompt Display */
+.prompt {
+  font-size: var(--prompt-size);
+  line-height: 1.8;
+  letter-spacing: 0.02em;
+  position: relative;
+  word-wrap: break-word;
+  text-align: center;
+  transition: opacity var(--transition-normal);
+  user-select: none;
+}
+
+.prompt.transitioning {
+  opacity: 0.3;
+}
+
+/* Character Styling */
+.char {
+  transition: color var(--transition-fast);
+}
+
+.char.pending {
+  color: var(--text-muted);
+}
+
+.char.current {
+  color: var(--text-current);
+  position: relative;
+}
+
+.char.correct {
+  color: var(--text-correct);
+}
+
+.char.incorrect {
+  color: var(--text-incorrect);
+}
+
+/* Caret */
+.caret {
+  position: absolute;
+  bottom: 0;
+  width: 2px;
+  height: 1.4em;
+  background-color: var(--accent);
+  animation: blink 1s step-end infinite;
+  pointer-events: none;
+  display: none; /* Hidden for now - using highlight instead */
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Stats Bar */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: var(--stats-size);
+  color: var(--text-muted);
+}
+
+.stat {
+  transition: color var(--transition-normal);
+}
+
+.stat-divider {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Focus Indicator */
+.focus-indicator {
+  font-size: var(--focus-size);
+  color: var(--accent);
+  opacity: 0.7;
+  text-align: center;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-5px);
+  }
+  to { 
+    opacity: 0.7;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  :root {
+    --prompt-size: 1.25rem;
+    --stats-size: 0.875rem;
+    --focus-size: 0.75rem;
+    --container-padding: 1rem;
+  }
+  
+  .typing-container {
+    gap: 1.5rem;
+  }
+}
+
+/* Focus Ring for Accessibility */
+.app:focus-visible {
+  outline: 2px solid var(--accent-muted);
+  outline-offset: -2px;
+}
+
+/* Restart Button */
+.restart-btn {
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.restart-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.restart-btn:active {
+  transform: scale(0.98);
+}
+
+/* Weak Bigrams Panel */
+.weak-bigrams-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.weak-bigrams-title {
+  font-size: 0.875rem;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.weak-bigrams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.weak-bigram-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.weak-bigram-item:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.weak-bigram-rank {
+  color: var(--text-muted);
+  width: 1.5rem;
+}
+
+.weak-bigram-text {
+  color: var(--text-incorrect);
+  font-weight: 500;
+  width: 3rem;
+}
+
+.weak-bigram-rate {
+  color: var(--accent);
+  width: 4rem;
+}
+
+.weak-bigram-count {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* Custom Scrollbar (if needed) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-primary);
+}
