@@ -2,7 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { RUNS_PER_CYCLE, RUN_TRANSITION_DELAY } from './constants';
-import { analyzeRuns, getWeakBigrams, getWeakBigramsDetailed } from './analysis';
+import {
+  analyzeRuns,
+  analyzeBigramTiming,
+  calculateOverallAvgTime,
+  combineAnalysis,
+  getWeakBigramsCombined,
+  getWeakBigramNames
+} from './analysis';
 import { generatePrompts } from './prompts';
 
 export default function App() {
@@ -94,11 +101,22 @@ export default function App() {
     if (newHistory.length % RUNS_PER_CYCLE === 0) {
       setIsTransitioning(true);
 
-      // Analyze the last 5 runs
-      const lastFiveRuns = newHistory.slice(-RUNS_PER_CYCLE);
-      const bigramStats = analyzeRuns(lastFiveRuns);
-      const newWeakBigrams = getWeakBigrams(bigramStats);
-      const newWeakBigramsDetailed = getWeakBigramsDetailed(bigramStats);
+      // Analyze the last cycle's runs
+      const lastCycleRuns = newHistory.slice(-RUNS_PER_CYCLE);
+
+      // Error analysis
+      const errorStats = analyzeRuns(lastCycleRuns);
+
+      // Timing analysis
+      const timingStats = analyzeBigramTiming(lastCycleRuns);
+      const overallAvgTime = calculateOverallAvgTime(timingStats);
+
+      // Combined analysis
+      const combinedStats = combineAnalysis(errorStats, timingStats);
+
+      // Get weak bigrams (combined scoring)
+      const newWeakBigramsDetailed = getWeakBigramsCombined(combinedStats, overallAvgTime);
+      const newWeakBigrams = getWeakBigramNames(combinedStats, overallAvgTime);
 
       setWeakBigrams(newWeakBigrams);
       setWeakBigramsDetailed(newWeakBigramsDetailed);
@@ -263,16 +281,26 @@ export default function App() {
         {weakBigramsDetailed.length > 0 && (
           <div className="weak-bigrams-panel">
             <div className="weak-bigrams-title">Weak Bigrams (Top 10)</div>
+            <div className="weak-bigrams-header">
+              <span className="header-rank">#</span>
+              <span className="header-bigram">Bigram</span>
+              <span className="header-score">Score</span>
+              <span className="header-error">Error</span>
+              <span className="header-time">Time</span>
+            </div>
             <div className="weak-bigrams-list">
               {weakBigramsDetailed.map((item, index) => (
                 <div key={item.bigram} className="weak-bigram-item">
                   <span className="weak-bigram-rank">{index + 1}.</span>
                   <span className="weak-bigram-text">"{item.bigram}"</span>
-                  <span className="weak-bigram-rate">
-                    {Math.round(item.errorRate * 100)}% err
+                  <span className="weak-bigram-score">
+                    {(item.weaknessScore * 100).toFixed(0)}
                   </span>
-                  <span className="weak-bigram-count">
-                    ({item.errors}/{item.attempts})
+                  <span className="weak-bigram-rate">
+                    {Math.round(item.errorRate * 100)}%
+                  </span>
+                  <span className="weak-bigram-time">
+                    {item.avgTime}ms {item.slownessFactor > 0 && `(+${item.slownessFactor}%)`}
                   </span>
                 </div>
               ))}

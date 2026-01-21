@@ -238,7 +238,7 @@ body {
   background: var(--bg-secondary);
   border-radius: 8px;
   width: 100%;
-  max-width: 400px;
+  max-width: 500px;
 }
 
 .weak-bigrams-title {
@@ -247,6 +247,25 @@ body {
   margin-bottom: 0.75rem;
   text-align: center;
 }
+
+.weak-bigrams-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.header-rank { width: 1.5rem; }
+.header-bigram { width: 3.5rem; }
+.header-score { width: 3rem; text-align: center; }
+.header-error { width: 3rem; text-align: center; }
+.header-time { flex: 1; }
 
 .weak-bigrams-list {
   display: flex;
@@ -275,17 +294,26 @@ body {
 .weak-bigram-text {
   color: var(--text-incorrect);
   font-weight: 500;
+  width: 3.5rem;
+}
+
+.weak-bigram-score {
+  color: var(--accent);
   width: 3rem;
+  text-align: center;
+  font-weight: 600;
 }
 
 .weak-bigram-rate {
-  color: var(--accent);
-  width: 4rem;
+  color: var(--text-primary);
+  width: 3rem;
+  text-align: center;
 }
 
-.weak-bigram-count {
+.weak-bigram-time {
   color: var(--text-muted);
   font-size: 0.75rem;
+  flex: 1;
 }
 
 /* Custom Scrollbar (if needed) */
