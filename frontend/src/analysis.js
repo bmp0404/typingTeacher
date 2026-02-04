@@ -13,6 +13,8 @@ export function analyzeRuns(runs) {
   for (const run of runs) {
     for (let i = 0; i < run.events.length - 1; i++) {
       const bigram = run.events[i].expected + run.events[i + 1].expected;
+      if (bigram.includes(' ')) continue;
+
       const existing = stats.get(bigram) || { attempts: 0, errors: 0 };
       existing.attempts++;
       if (run.events[i + 1].actual !== run.events[i + 1].expected) {
@@ -35,6 +37,8 @@ export function analyzeBigramTiming(runs) {
   for (const run of runs) {
     for (let i = 0; i < run.events.length - 1; i++) {
       const bigram = run.events[i].expected + run.events[i + 1].expected;
+      if (bigram.includes(' ')) continue;
+
       const delta = run.events[i + 1].timestamp - run.events[i].timestamp;
 
       const existing = timingStats.get(bigram) || { totalTime: 0, count: 0 };
@@ -120,11 +124,15 @@ export function getWeakBigramsCombined(
       // Error factor: 0 to 1
       const errorFactor = stats.errorRate;
 
-      // Slowness factor: how much slower than average (clamped to 0 minimum)
-      // e.g., avgTime=150, overallAvg=100 → slownessFactor = 0.5 (50% slower)
-      const slownessFactor = overallAvgTime > 0
-        ? Math.max(0, (stats.avgTime - overallAvgTime) / overallAvgTime)
+      // Raw timing difference (can be negative for faster-than-average)
+      // e.g., avgTime=150, overallAvg=100 → timingDiff = 0.5 (50% slower)
+      // e.g., avgTime=80, overallAvg=100 → timingDiff = -0.2 (20% faster)
+      const timingDiff = overallAvgTime > 0
+        ? (stats.avgTime - overallAvgTime) / overallAvgTime
         : 0;
+
+      // Slowness factor for scoring (clamped to 0 - fast bigrams don't reduce score)
+      const slownessFactor = Math.max(0, timingDiff);
 
       // Combined weakness score
       const weaknessScore = (errorFactor * errorWeight) + (slownessFactor * timingWeight);
@@ -134,7 +142,7 @@ export function getWeakBigramsCombined(
         weaknessScore,
         errorRate: stats.errorRate,
         avgTime: Math.round(stats.avgTime),
-        slownessFactor: Math.round(slownessFactor * 100), // as percentage
+        timingDiff: Math.round(timingDiff * 100), // as percentage (can be negative)
         attempts: stats.attempts,
         errors: stats.errors
       };

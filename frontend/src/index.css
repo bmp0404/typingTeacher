@@ -134,6 +134,18 @@ body {
   color: var(--text-incorrect);
 }
 
+.char.weak-bigram.pending {
+  text-decoration: underline;
+  text-decoration-color: var(--accent-muted);
+  text-underline-offset: 4px;
+}
+
+.char.weak-bigram.current {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 4px;
+}
+
 /* Caret */
 .caret {
   position: absolute;
@@ -231,6 +243,13 @@ body {
   transform: scale(0.98);
 }
 
+/* Coverage Stats */
+.coverage-stats {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* Weak Bigrams Panel */
 .weak-bigrams-panel {
   margin-top: 1rem;
@@ -244,8 +263,15 @@ body {
 .weak-bigrams-title {
   font-size: 0.875rem;
   color: var(--accent);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.25rem;
   text-align: center;
+}
+
+.weak-bigrams-avg {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 0.75rem;
 }
 
 .weak-bigrams-header {
@@ -314,6 +340,16 @@ body {
   color: var(--text-muted);
   font-size: 0.75rem;
   flex: 1;
+}
+
+.timing-slow {
+  color: var(--text-incorrect);
+  margin-left: 0.25rem;
+}
+
+.timing-fast {
+  color: #4ade80;
+  margin-left: 0.25rem;
 }
 
 /* Custom Scrollbar (if needed) */

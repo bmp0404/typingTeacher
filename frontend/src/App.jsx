@@ -1,6 +1,6 @@
 // App.jsx
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { RUNS_PER_CYCLE, RUN_TRANSITION_DELAY } from './constants';
 import {
   analyzeRuns,
@@ -11,6 +11,15 @@ import {
   getWeakBigramNames
 } from './analysis';
 import { generatePrompts } from './prompts';
+import { getWeakBigramPositions, calculateWeakBigramCoverage } from './utils';
+import {
+  initDB,
+  createSession,
+  saveRun,
+  updateBigramStats,
+  getWeakestBigrams,
+  updateSession
+} from './db';
 
 export default function App() {
   // Core state
@@ -19,6 +28,7 @@ export default function App() {
   const [runHistory, setRunHistory] = useState([]);
   const [weakBigrams, setWeakBigrams] = useState([]);
   const [weakBigramsDetailed, setWeakBigramsDetailed] = useState([]);
+  const [overallAvgTime, setOverallAvgTime] = useState(0);
 
   // Current run state
   const [typedChars, setTypedChars] = useState([]);
@@ -29,6 +39,13 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [cycleCount, setCycleCount] = useState(1);
+
+  // Database state
+  const [sessionId, setSessionId] = useState(null);
+  const [isDbReady, setIsDbReady] = useState(false);
+
+  // Coverage state
+  const [promptCoverage, setPromptCoverage] = useState(null);
 
   // Refs
   const containerRef = useRef(null);
@@ -59,6 +76,12 @@ export default function App() {
   const accuracy = calculateAccuracy();
   const runNumber = (currentPromptIndex % RUNS_PER_CYCLE) + 1;
 
+  // Positions of weak bigram characters in the current prompt
+  const weakPositions = useMemo(
+    () => getWeakBigramPositions(currentPrompt, weakBigrams),
+    [currentPrompt, weakBigrams]
+  );
+
   // ============================================
   // INITIALIZATION
   // ============================================
@@ -66,8 +89,37 @@ export default function App() {
   useEffect(() => {
     async function init() {
       setIsLoading(true);
-      const prompts = await generatePrompts([]);
-      setPromptQueue(prompts);
+
+      // Initialize database
+      try {
+        await initDB();
+        setIsDbReady(true);
+
+        // Create a new session
+        const newSessionId = await createSession();
+        setSessionId(newSessionId);
+
+        // Load lifetime weak bigrams to influence initial prompts
+        const lifetimeWeakBigrams = await getWeakestBigrams(10);
+
+        if (lifetimeWeakBigrams.length > 0) {
+          setWeakBigrams(lifetimeWeakBigrams);
+        }
+
+        // Generate prompts (using lifetime weak bigrams if available)
+        const prompts = await generatePrompts(lifetimeWeakBigrams);
+        setPromptQueue(prompts);
+
+        if (lifetimeWeakBigrams.length > 0) {
+          setPromptCoverage(calculateWeakBigramCoverage(prompts, lifetimeWeakBigrams));
+        }
+      } catch (error) {
+        console.error('Failed to initialize database:', error);
+        // Fall back to generating prompts without DB
+        const prompts = await generatePrompts([]);
+        setPromptQueue(prompts);
+      }
+
       setIsLoading(false);
     }
     init();
@@ -80,6 +132,18 @@ export default function App() {
     }
   }, [isLoading, currentPromptIndex]);
 
+  // Finalize session on page unload
+  useEffect(() => {
+    const handleUnload = () => {
+      if (isDbReady && sessionId) {
+        updateSession(sessionId, { endTime: Date.now() });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [isDbReady, sessionId]);
+
   // ============================================
   // RUN COMPLETION LOGIC
   // ============================================
@@ -87,6 +151,8 @@ export default function App() {
   const completeRun = useCallback(async () => {
     const finalWPM = calculateWPM();
     const finalAccuracy = calculateAccuracy();
+    const currentRunNumber = (runHistory.length % RUNS_PER_CYCLE) + 1;
+    const currentCycleNumber = Math.floor(runHistory.length / RUNS_PER_CYCLE) + 1;
 
     const runResult = {
       events: keystrokeEvents,
@@ -96,6 +162,22 @@ export default function App() {
 
     const newHistory = [...runHistory, runResult];
     setRunHistory(newHistory);
+
+    // Save run to database
+    if (isDbReady && sessionId) {
+      try {
+        await saveRun({
+          sessionId,
+          cycleNumber: currentCycleNumber,
+          runNumber: currentRunNumber,
+          wpm: finalWPM,
+          accuracy: finalAccuracy,
+          events: keystrokeEvents
+        });
+      } catch (error) {
+        console.error('Failed to save run:', error);
+      }
+    }
 
     // Check if we've completed a cycle
     if (newHistory.length % RUNS_PER_CYCLE === 0) {
@@ -109,20 +191,46 @@ export default function App() {
 
       // Timing analysis
       const timingStats = analyzeBigramTiming(lastCycleRuns);
-      const overallAvgTime = calculateOverallAvgTime(timingStats);
+      const avgTime = calculateOverallAvgTime(timingStats);
 
       // Combined analysis
       const combinedStats = combineAnalysis(errorStats, timingStats);
 
       // Get weak bigrams (combined scoring)
-      const newWeakBigramsDetailed = getWeakBigramsCombined(combinedStats, overallAvgTime);
-      const newWeakBigrams = getWeakBigramNames(combinedStats, overallAvgTime);
+      const newWeakBigramsDetailed = getWeakBigramsCombined(combinedStats, avgTime);
+      const newWeakBigrams = getWeakBigramNames(combinedStats, avgTime);
 
       setWeakBigrams(newWeakBigrams);
       setWeakBigramsDetailed(newWeakBigramsDetailed);
+      setOverallAvgTime(Math.round(avgTime));
+
+      // Update lifetime bigram stats in database
+      if (isDbReady) {
+        try {
+          // Build a map with the data structure db.js expects
+          const bigramDataForDb = new Map();
+          for (const [bigram, stats] of combinedStats.entries()) {
+            bigramDataForDb.set(bigram, {
+              attempts: stats.attempts,
+              errors: stats.errors,
+              totalTime: stats.totalTime,
+              count: stats.count
+            });
+          }
+          await updateBigramStats(bigramDataForDb);
+
+          // Update session cycle count
+          if (sessionId) {
+            await updateSession(sessionId, { totalCycles: currentCycleNumber });
+          }
+        } catch (error) {
+          console.error('Failed to update bigram stats:', error);
+        }
+      }
 
       // Generate new prompts targeting weaknesses
       const newPrompts = await generatePrompts(newWeakBigrams);
+      setPromptCoverage(calculateWeakBigramCoverage(newPrompts, newWeakBigrams));
 
       setTimeout(() => {
         setPromptQueue(newPrompts);
@@ -145,7 +253,7 @@ export default function App() {
         setIsTransitioning(false);
       }, RUN_TRANSITION_DELAY);
     }
-  }, [runHistory, keystrokeEvents, calculateWPM, calculateAccuracy]);
+  }, [runHistory, keystrokeEvents, calculateWPM, calculateAccuracy, isDbReady, sessionId]);
 
   // ============================================
   // KEYSTROKE HANDLING
@@ -207,6 +315,9 @@ export default function App() {
     setTypedChars([]);
     setKeystrokeEvents([]);
     setStartTime(null);
+    if (weakBigrams.length > 0) {
+      setPromptCoverage(calculateWeakBigramCoverage(newPrompts, weakBigrams));
+    }
     setIsLoading(false);
     // Re-focus the container after restart
     if (containerRef.current) {
@@ -250,6 +361,10 @@ export default function App() {
               className += ' pending';
             }
 
+            if (weakPositions.has(i)) {
+              className += ' weak-bigram';
+            }
+
             return (
               <span key={i} className={className}>
                 {char}
@@ -277,10 +392,21 @@ export default function App() {
           Restart Cycle
         </button>
 
+        {/* Coverage Stats */}
+        {promptCoverage && weakBigrams.length > 0 && (
+          <div className="coverage-stats">
+            Targeting: {promptCoverage.wordsWithWeakBigrams}/{promptCoverage.totalWords} words
+            contain weak bigrams ({promptCoverage.percentage}%)
+          </div>
+        )}
+
         {/* Weak Bigrams Display */}
         {weakBigramsDetailed.length > 0 && (
           <div className="weak-bigrams-panel">
             <div className="weak-bigrams-title">Weak Bigrams (Top 10)</div>
+            <div className="weak-bigrams-avg">
+              Avg bigram time: {overallAvgTime}ms
+            </div>
             <div className="weak-bigrams-header">
               <span className="header-rank">#</span>
               <span className="header-bigram">Bigram</span>
@@ -300,7 +426,10 @@ export default function App() {
                     {Math.round(item.errorRate * 100)}%
                   </span>
                   <span className="weak-bigram-time">
-                    {item.avgTime}ms {item.slownessFactor > 0 && `(+${item.slownessFactor}%)`}
+                    {item.avgTime}ms
+                    <span className={item.timingDiff >= 0 ? 'timing-slow' : 'timing-fast'}>
+                      ({item.timingDiff >= 0 ? '+' : ''}{item.timingDiff}%)
+                    </span>
                   </span>
                 </div>
               ))}
