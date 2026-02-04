@@ -161,38 +161,6 @@ export function getWeakBigramNames(combinedStats, overallAvgTime, options = {}) 
 }
 
 // ============================================
-// LEGACY FUNCTIONS (for backward compatibility)
-// ============================================
-
-export function getWeakBigrams(bigramStats, minAttempts = 3, topN = 10) {
-  const sorted = Array.from(bigramStats.entries())
-    .filter(([_, stats]) => stats.attempts >= minAttempts)
-    .map(([bigram, stats]) => ({
-      bigram,
-      errorRate: stats.errors / stats.attempts,
-      ...stats
-    }))
-    .sort((a, b) => b.errorRate - a.errorRate)
-    .slice(0, topN);
-
-  return sorted.filter(b => b.errorRate > 0).map(b => b.bigram);
-}
-
-export function getWeakBigramsDetailed(bigramStats, minAttempts = 3, topN = 10) {
-  const sorted = Array.from(bigramStats.entries())
-    .filter(([_, stats]) => stats.attempts >= minAttempts)
-    .map(([bigram, stats]) => ({
-      bigram,
-      errorRate: stats.errors / stats.attempts,
-      ...stats
-    }))
-    .sort((a, b) => b.errorRate - a.errorRate)
-    .slice(0, topN);
-
-  return sorted.filter(b => b.errorRate > 0);
-}
-
-// ============================================
 // WORD SCORING
 // ============================================
 
