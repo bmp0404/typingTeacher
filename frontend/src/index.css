@@ -243,6 +243,24 @@ body {
   transform: scale(0.98);
 }
 
+.reset-data-btn {
+  background: transparent;
+  border: 1px solid var(--text-incorrect);
+  color: var(--text-incorrect);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  opacity: 0.6;
+}
+
+.reset-data-btn:hover {
+  opacity: 1;
+  background: rgba(202, 71, 84, 0.1);
+}
+
 /* Coverage Stats */
 .coverage-stats {
   font-size: 0.8rem;

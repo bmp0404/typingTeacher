@@ -18,7 +18,8 @@ import {
   saveRun,
   updateBigramStats,
   getWeakestBigrams,
-  updateSession
+  updateSession,
+  clearAllData
 } from './db';
 
 export default function App() {
@@ -390,6 +391,20 @@ export default function App() {
           tabIndex={-1}
         >
           Restart Cycle
+        </button>
+
+        {/* Reset Data Button */}
+        <button
+          className="reset-data-btn"
+          onClick={async () => {
+            if (window.confirm('Clear all saved data? This cannot be undone.')) {
+              await clearAllData();
+              window.location.reload();
+            }
+          }}
+          tabIndex={-1}
+        >
+          Reset All Data
         </button>
 
         {/* Coverage Stats */}
