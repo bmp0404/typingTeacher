@@ -8,7 +8,8 @@ import {
   calculateOverallAvgTime,
   combineAnalysis,
   getWeakBigramsCombined,
-  getWeakBigramNames
+  getWeakBigramNames,
+  blendBigramStats
 } from './analysis';
 import { generatePrompts } from './prompts';
 import { getWeakBigramPositions, calculateWeakBigramCoverage } from './utils';
@@ -19,7 +20,8 @@ import {
   updateBigramStats,
   getWeakestBigrams,
   updateSession,
-  clearAllData
+  clearAllData,
+  getAllBigramStats
 } from './db';
 
 export default function App() {
@@ -47,6 +49,9 @@ export default function App() {
 
   // Coverage state
   const [promptCoverage, setPromptCoverage] = useState(null);
+
+  // Weight slider state (0 = 100% cycle, 1 = 100% lifetime)
+  const [lifetimeWeight, setLifetimeWeight] = useState(0.4);
 
   // Refs
   const containerRef = useRef(null);
@@ -133,6 +138,16 @@ export default function App() {
     }
   }, [isLoading, currentPromptIndex]);
 
+  // Load/save lifetime weight preference
+  useEffect(() => {
+    const saved = localStorage.getItem('lifetimeWeight');
+    if (saved) setLifetimeWeight(parseFloat(saved));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('lifetimeWeight', lifetimeWeight.toString());
+  }, [lifetimeWeight]);
+
   // Finalize session on page unload
   useEffect(() => {
     const handleUnload = () => {
@@ -194,12 +209,23 @@ export default function App() {
       const timingStats = analyzeBigramTiming(lastCycleRuns);
       const avgTime = calculateOverallAvgTime(timingStats);
 
-      // Combined analysis
+      // Combined analysis (cycle only)
       const combinedStats = combineAnalysis(errorStats, timingStats);
 
-      // Get weak bigrams (combined scoring)
-      const newWeakBigramsDetailed = getWeakBigramsCombined(combinedStats, avgTime);
-      const newWeakBigrams = getWeakBigramNames(combinedStats, avgTime);
+      // Blend with lifetime stats if DB is ready
+      let statsForScoring = combinedStats;
+      if (isDbReady) {
+        try {
+          const lifetimeStats = await getAllBigramStats();
+          statsForScoring = blendBigramStats(combinedStats, lifetimeStats, lifetimeWeight);
+        } catch (error) {
+          console.error('Failed to load lifetime stats for blending:', error);
+        }
+      }
+
+      // Get weak bigrams (blended scoring)
+      const newWeakBigramsDetailed = getWeakBigramsCombined(statsForScoring, avgTime);
+      const newWeakBigrams = getWeakBigramNames(statsForScoring, avgTime);
 
       setWeakBigrams(newWeakBigrams);
       setWeakBigramsDetailed(newWeakBigramsDetailed);
@@ -406,6 +432,21 @@ export default function App() {
         >
           Reset All Data
         </button>
+
+        {/* Weight Slider */}
+        <div className="weight-slider">
+          <label>
+            {Math.round((1 - lifetimeWeight) * 100)}% Current Cycle / {Math.round(lifetimeWeight * 100)}% Lifetime
+          </label>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={lifetimeWeight * 100}
+            onChange={(e) => setLifetimeWeight(e.target.value / 100)}
+            tabIndex={-1}
+          />
+        </div>
 
         {/* Coverage Stats */}
         {promptCoverage && weakBigrams.length > 0 && (

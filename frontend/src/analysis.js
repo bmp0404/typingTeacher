@@ -103,6 +103,54 @@ export function combineAnalysis(errorStats, timingStats) {
 }
 
 // ============================================
+// BLENDED SCORING (Cycle + Lifetime)
+// ============================================
+
+export function blendBigramStats(cycleStats, lifetimeStats, lifetimeWeight) {
+  const blended = new Map();
+  const allBigrams = new Set([
+    ...cycleStats.keys(),
+    ...lifetimeStats.keys()
+  ]);
+
+  for (const bigram of allBigrams) {
+    const cycle = cycleStats.get(bigram);
+    const lifetime = lifetimeStats.get(bigram);
+
+    // Calculate error rates
+    const cycleErrorRate = cycle ? cycle.errorRate : 0;
+    const lifetimeErrorRate = lifetime && lifetime.totalAttempts > 0
+      ? lifetime.totalErrors / lifetime.totalAttempts
+      : 0;
+
+    // Calculate avg times
+    const cycleAvgTime = cycle ? cycle.avgTime : 0;
+    const lifetimeAvgTime = lifetime && lifetime.totalCount > 0
+      ? lifetime.totalTime / lifetime.totalCount
+      : 0;
+
+    // Blend based on weights
+    const cycleWeight = 1 - lifetimeWeight;
+    const blendedErrorRate = (cycleErrorRate * cycleWeight) + (lifetimeErrorRate * lifetimeWeight);
+    const blendedAvgTime = (cycleAvgTime * cycleWeight) + (lifetimeAvgTime * lifetimeWeight);
+
+    // Only include if we have data from at least one source
+    if (cycle || lifetime) {
+      blended.set(bigram, {
+        attempts: cycle?.attempts || 0,
+        errors: cycle?.errors || 0,
+        errorRate: blendedErrorRate,
+        avgTime: blendedAvgTime,
+        totalTime: cycle?.totalTime || 0,
+        count: cycle?.count || 0
+      });
+    }
+  }
+
+  return blended;
+}
+
+// ============================================
 // WEAKNESS SCORING
 // ============================================
 
