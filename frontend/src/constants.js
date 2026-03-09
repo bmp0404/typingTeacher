@@ -5,6 +5,28 @@ export const RUNS_PER_CYCLE = 3;
 export const WORDS_PER_PROMPT = 10; // TODO: Change back to 10 after testing
 export const RUN_TRANSITION_DELAY = 400;
 
+export const DRILL_MODES = {
+  ADAPTIVE:    'adaptive',
+  HOME_ROW:    'homeRow',
+  TOP_ROW:     'topRow',
+  PUNCTUATION: 'punctuation',
+};
+
+export const DRILL_LABELS = {
+  adaptive:    'Adaptive',
+  homeRow:     'Home Row',
+  topRow:      'Top Row',
+  punctuation: 'Punctuation',
+};
+
+// Common contractions - used as extra words in punctuation drill for apostrophe practice
+export const PUNCTUATION_CONTRACTIONS = [
+  "don't", "can't", "won't", "it's", "they're", "we're", "i've", "i'll",
+  "you're", "he's", "she's", "isn't", "aren't", "wasn't", "weren't",
+  "couldn't", "wouldn't", "shouldn't", "i'd", "you'd", "he'd", "they'd",
+  "i'm", "that's", "there's", "here's", "what's", "who's", "how's",
+];
+
 // Fallback word list if APIs fail
 export const FALLBACK_WORDS = [
   'the', 'quick', 'brown', 'fox', 'jumps', 'over', 'lazy', 'dog', 'pack',

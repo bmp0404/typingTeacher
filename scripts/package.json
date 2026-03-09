@@ -1,0 +1,11 @@
+{
+  "name": "typing-teacher-scripts",
+  "version": "1.0.0",
+  "description": "Build scripts for typing-teacher",
+  "scripts": {
+    "generate-word-banks": "node generateWordBanks.js"
+  },
+  "dependencies": {
+    "an-array-of-english-words": "^2.0.0"
+  }
+}

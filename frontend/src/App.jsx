@@ -1,7 +1,7 @@
 // App.jsx
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { RUNS_PER_CYCLE, RUN_TRANSITION_DELAY } from './constants';
+import { RUNS_PER_CYCLE, RUN_TRANSITION_DELAY, DRILL_MODES, DRILL_LABELS } from './constants';
 import {
   analyzeRuns,
   analyzeBigramTiming,
@@ -53,6 +53,9 @@ export default function App() {
   // Weight slider state (0 = 100% cycle, 1 = 100% lifetime)
   const [lifetimeWeight, setLifetimeWeight] = useState(0.4);
 
+  // Drill mode
+  const [drillMode, setDrillMode] = useState(DRILL_MODES.ADAPTIVE);
+
   // Refs
   const containerRef = useRef(null);
 
@@ -96,6 +99,10 @@ export default function App() {
     async function init() {
       setIsLoading(true);
 
+      // Load saved preferences synchronously before async work
+      const savedDrillMode = localStorage.getItem('drillMode') || DRILL_MODES.ADAPTIVE;
+      setDrillMode(savedDrillMode);
+
       // Initialize database
       try {
         await initDB();
@@ -113,7 +120,7 @@ export default function App() {
         }
 
         // Generate prompts (using lifetime weak bigrams if available)
-        const prompts = await generatePrompts(lifetimeWeakBigrams);
+        const prompts = await generatePrompts(lifetimeWeakBigrams, RUNS_PER_CYCLE, savedDrillMode);
         setPromptQueue(prompts);
 
         if (lifetimeWeakBigrams.length > 0) {
@@ -122,7 +129,7 @@ export default function App() {
       } catch (error) {
         console.error('Failed to initialize database:', error);
         // Fall back to generating prompts without DB
-        const prompts = await generatePrompts([]);
+        const prompts = await generatePrompts([], RUNS_PER_CYCLE, savedDrillMode);
         setPromptQueue(prompts);
       }
 
@@ -147,6 +154,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('lifetimeWeight', lifetimeWeight.toString());
   }, [lifetimeWeight]);
+
+  useEffect(() => {
+    localStorage.setItem('drillMode', drillMode);
+  }, [drillMode]);
 
   // Finalize session on page unload
   useEffect(() => {
@@ -256,7 +267,7 @@ export default function App() {
       }
 
       // Generate new prompts targeting weaknesses
-      const newPrompts = await generatePrompts(newWeakBigrams);
+      const newPrompts = await generatePrompts(newWeakBigrams, RUNS_PER_CYCLE, drillMode);
       setPromptCoverage(calculateWeakBigramCoverage(newPrompts, newWeakBigrams));
 
       setTimeout(() => {
@@ -280,7 +291,7 @@ export default function App() {
         setIsTransitioning(false);
       }, RUN_TRANSITION_DELAY);
     }
-  }, [runHistory, keystrokeEvents, calculateWPM, calculateAccuracy, isDbReady, sessionId]);
+  }, [runHistory, keystrokeEvents, calculateWPM, calculateAccuracy, isDbReady, sessionId, drillMode]);
 
   // ============================================
   // KEYSTROKE HANDLING
@@ -336,7 +347,7 @@ export default function App() {
 
   const handleRestart = useCallback(async () => {
     setIsLoading(true);
-    const newPrompts = await generatePrompts(weakBigrams);
+    const newPrompts = await generatePrompts(weakBigrams, RUNS_PER_CYCLE, drillMode);
     setPromptQueue(newPrompts);
     setCurrentPromptIndex(0);
     setTypedChars([]);
@@ -346,11 +357,26 @@ export default function App() {
       setPromptCoverage(calculateWeakBigramCoverage(newPrompts, weakBigrams));
     }
     setIsLoading(false);
-    // Re-focus the container after restart
-    if (containerRef.current) {
-      containerRef.current.focus();
+    if (containerRef.current) containerRef.current.focus();
+  }, [weakBigrams, drillMode]);
+
+  const handleModeChange = useCallback(async (newMode) => {
+    if (newMode === drillMode) return;
+    setDrillMode(newMode);
+    setIsLoading(true);
+    setRunHistory([]);
+    setCurrentPromptIndex(0);
+    setTypedChars([]);
+    setKeystrokeEvents([]);
+    setStartTime(null);
+    const newPrompts = await generatePrompts(weakBigrams, RUNS_PER_CYCLE, newMode);
+    setPromptQueue(newPrompts);
+    if (weakBigrams.length > 0) {
+      setPromptCoverage(calculateWeakBigramCoverage(newPrompts, weakBigrams));
     }
-  }, [weakBigrams]);
+    setIsLoading(false);
+    if (containerRef.current) containerRef.current.focus();
+  }, [drillMode, weakBigrams]);
 
   // ============================================
   // RENDER
@@ -372,6 +398,20 @@ export default function App() {
       onKeyDown={handleKeyDown}
     >
       <div className="typing-container">
+        {/* Drill Mode Selector */}
+        <div className="drill-selector">
+          {Object.entries(DRILL_LABELS).map(([mode, label]) => (
+            <button
+              key={mode}
+              className={`drill-btn${drillMode === mode ? ' active' : ''}`}
+              onClick={() => handleModeChange(mode)}
+              tabIndex={-1}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Prompt Display */}
         <div className={`prompt ${isTransitioning ? 'transitioning' : ''}`}>
           {currentPrompt.split('').map((char, i) => {
